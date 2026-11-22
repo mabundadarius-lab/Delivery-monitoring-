@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>DropTrack · Delivery Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0e1116; --surface:#171c24; --surface-2:#202733; --line:rgba(255,255,255,.09); --text:#F3F5F9; --muted:#A6AEBF; --amber:#FFB020; --green:#34D399; --blue:#5AB1FF; --red:#FF6B6B; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background:#07080b; color:var(--text); font-family:'Outfit',system-ui,sans-serif; display:flex; align-items:center; justify-content:center; -webkit-text-size-adjust:100%; }
+  button, input, textarea { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  :focus-visible { outline:3px solid var(--amber); outline-offset:2px; }
+  [hidden] { display:none !important; }
+  .e { font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
+
+  #app { position:relative; width:100%; max-width:430px; height:100dvh; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+  @media (min-width:481px){ #app { height:min(880px,calc(100dvh - 32px)); border-radius:40px; border:1px solid var(--line); box-shadow:0 30px 80px rgba(0,0,0,.6);} }
+
+  /* Top bar */
+  .top { padding:16px 16px 10px; display:grid; gap:10px; }
+  .brand { display:flex; align-items:center; justify-content:space-between; }
+  .brand h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .brand h1 span { display:inline-block; animation: wiggle 2.4s ease-in-out infinite; transform-origin:70% 80%; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--surface-2); font-size:12px; font-weight:600; color:var(--muted); }
+  .live { width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.2s infinite; }
+  form.track { display:flex; gap:8px; }
+  form.track input { flex:1; min-width:0; min-height:44px; padding:0 14px; border-radius:14px; border:1px solid var(--line); background:var(--surface); text-transform:uppercase; letter-spacing:.04em; }
+  form.track input.bad { border-color:var(--red); animation:shake .4s; }
+  .btn { min-height:44px; padding:0 18px; border-radius:14px; border:1px solid var(--line); background:var(--surface-2); font-weight:700; transition:transform .12s, filter .12s; }
+  .btn:active { transform:scale(.96); }
+  .btn.primary { background:var(--amber); color:#1a1200; border-color:transparent; }
+  .btn.primary:hover { filter:brightness(1.08); }
+  .btn.block { width:100%; }
+  .chips { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; }
+  .chip { flex:none; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); font-size:13px; font-weight:600; color:var(--muted); }
+  .chip[aria-pressed="true"] { background:var(--amber); color:#1a1200; border-color:transparent; }
+  .err { margin:0; min-height:16px; font-size:12px; color:var(--red); }
+
+  main { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; padding:0 16px 20px; display:flex; flex-direction:column; gap:14px; }
+  main > * { flex:none; }
+  main::-webkit-scrollbar { display:none; }
+
+  /* Map */
+  .map { position:relative; width:100%; border-radius:24px; overflow:hidden; border:1px solid var(--line); background:#111722; }
+  .map svg { display:block; width:100%; height:auto; aspect-ratio:360/300; touch-action:none; user-select:none; }
+  .eta { padding:12px 14px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .eta .row { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .eta b { font-size:26px; font-weight:800; letter-spacing:-.02em; }
+  .eta small { color:var(--muted); font-size:12px; }
+  .meter { position:relative; height:8px; border-radius:99px; background:var(--surface-2); margin-top:8px; }
+  .meter i { position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:linear-gradient(90deg,#FF8A00,var(--amber)); }
+  .meter .rider { position:absolute; top:-9px; font-size:16px; transform:translateX(-50%); transition:left .2s linear; }
+  .ctrls { position:absolute; right:10px; bottom:52px; display:flex; gap:8px; }
+  .ctrl { width:44px; height:44px; border-radius:14px; border:1px solid var(--line); background:rgba(14,17,22,.88); display:grid; place-items:center; font-size:20px; font-weight:700; }
+  .ctrl[aria-pressed="true"] { background:var(--amber); color:#1a1200; }
+  .note { margin:0; padding:10px 14px; font-size:13px; color:var(--muted); background:var(--surface); border-top:1px solid var(--line); min-height:40px; }
+  .pin { cursor:pointer; }
+  .pin:focus-visible { outline:none; }
+  .pin:focus-visible circle.ring { stroke:var(--amber); }
+
+  /* Simulation controls */
+  .sim { display:grid; grid-template-columns:auto auto 1fr; gap:10px; align-items:center; padding:10px 12px; border-radius:18px; background:var(--surface); border:1px solid var(--line); }
+  .sim .btn { min-height:44px; padding:0 14px; }
+  input[type=range] { width:100%; accent-color:var(--amber); min-height:32px; }
+
+  /* Tabs */
+  .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:5px; border-radius:16px; background:var(--surface); border:1px solid var(--line); position:sticky; top:0; z-index:3; }
+  .tab { min-height:42px; border:0; border-radius:12px; background:none; font-weight:700; color:var(--muted); }
+  .tab[aria-selected="true"] { background:var(--surface-2); color:var(--text); box-shadow:inset 0 -2px 0 var(--amber); }
+  .panel { display:grid; gap:14px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .headline { font-size:20px; font-weight:800; margin:0 0 4px; }
+  .muted { color:var(--muted); font-size:14px; margin:0; }
+
+  /* Stepper */
+  .steps { list-style:none; margin:0; padding:0; display:grid; }
+  .step { position:relative; display:grid; grid-template-columns:48px 1fr auto; gap:12px; align-items:center; width:100%; text-align:left; padding:8px 0 14px; background:none; border:0; }
+  .step::before { content:""; position:absolute; left:23px; top:50px; bottom:-6px; width:2px; background:var(--surface-2); }
+  .step:last-child::before { display:none; }
+  .step.done::before { background:var(--amber); }
+  .dot { width:48px; height:48px; border-radius:50%; background:var(--surface-2); display:grid; place-items:center; font-size:22px; position:relative; z-index:1; filter:grayscale(1); opacity:.6; transition:all .3s; }
+  .step.done .dot { filter:none; opacity:1; background:rgba(255,176,32,.18); }
+  .step.now .dot { filter:none; opacity:1; background:var(--amber); animation:ring 1.6s infinite; }
+  .step.now .dot .em { animation:hop 1s ease-in-out infinite; }
+  .step b { display:block; font-size:16px; }
+  .step span.sub { font-size:13px; color:var(--muted); }
+  .step time { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .step.now b { color:var(--amber); }
+
+  /* Courier */
+  .courier { display:grid; grid-template-columns:56px 1fr; gap:14px; align-items:center; }
+  .avatar { width:56px; height:56px; border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:18px; color:#1a1200; background:linear-gradient(135deg,#FFD36B,var(--amber)); }
+  .courier b { font-size:18px; }
+  .stars { color:var(--amber); letter-spacing:2px; font-size:14px; }
+  .acts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .badge { position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; padding:0 5px; border-radius:99px; background:var(--red); font-size:12px; font-weight:800; display:grid; place-items:center; animation:pop .3s; }
+  .btn.rel { position:relative; }
+  .switch { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:48px; background:none; border:0; padding:0; text-align:left; font-weight:600; }
+  .switch .tg { flex:none; width:48px; height:28px; border-radius:99px; background:var(--surface-2); position:relative; transition:background .2s; }
+  .switch .tg::after { content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .2s; }
+  .switch[aria-checked="true"] .tg { background:var(--green); }
+  .switch[aria-checked="true"] .tg::after { transform:translateX(20px); }
+  textarea { width:100%; min-height:76px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--surface-2); resize:vertical; margin:10px 0; }
+  .tips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .tip { min-height:64px; border-radius:16px; border:1px solid var(--line); background:var(--surface-2); display:grid; place-items:center; align-content:center; gap:2px; font-weight:700; font-size:13px; transition:transform .15s; }
+  .tip .e { font-size:22px; }
+  .tip[aria-pressed="true"] { background:var(--amber); color:#1a1200; border-color:transparent; transform:translateY(-3px); }
+
+  /* Order */
+  .item { width:100%; text-align:left; display:grid; gap:0; background:none; border:0; border-top:1px solid var(--line); padding:12px 0; }
+  .item:first-of-type { border-top:0; }
+  .item .r { display:flex; justify-content:space-between; gap:10px; font-weight:600; }
+  .item .d { max-height:0; overflow:hidden; color:var(--muted); font-size:13px; transition:max-height .25s, margin .25s; }
+  .item[aria-expanded="true"] .d { max-height:60px; margin-top:6px; }
+  .item .chev { display:inline-block; transition:transform .2s; margin-right:8px; color:var(--muted); }
+  .item[aria-expanded="true"] .chev { transform:rotate(90deg); }
+  .tot { display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); font-size:14px; }
+  .tot.big { color:var(--text); font-weight:800; font-size:18px; border-top:1px solid var(--line); margin-top:6px; padding-top:12px; }
+
+  /* Delivered */
+  .delivered { text-align:center; border-color:rgba(52,211,153,.4); background:linear-gradient(180deg,rgba(52,211,153,.14),var(--surface)); animation:pop .5s; }
+  .delivered .big { font-size:54px; display:inline-block; animation:hop 1s ease-in-out infinite; }
+  .rate { display:flex; justify-content:center; gap:6px; margin-top:10px; }
+  .star { width:44px; height:44px; border:0; background:none; font-size:32px; color:#566078; transition:transform .12s, color .12s; }
+  .star.on { color:var(--amber); }
+  .star:hover { transform:scale(1.2) rotate(-8deg); }
+
+  /* Overlays */
+  .overlay { position:absolute; inset:0; z-index:30; background:var(--bg); display:flex; flex-direction:column; animation:up .25s ease; }
+  .ov-head { display:flex; align-items:center; gap:12px; padding:18px 16px 12px; border-bottom:1px solid var(--line); }
+  .ov-head h2 { margin:0; font-size:18px; flex:1; }
+  .icon-btn { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--surface); font-size:18px; }
+  .msgs { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:80%; padding:10px 14px; border-radius:18px; font-size:15px; line-height:1.35; animation:pop .25s; }
+  .msg.them { align-self:flex-start; background:var(--surface-2); border-bottom-left-radius:6px; }
+  .msg.me { align-self:flex-end; background:var(--amber); color:#1a1200; border-bottom-right-radius:6px; font-weight:500; }
+  .typing { display:flex; gap:4px; padding:12px 14px; align-self:flex-start; background:var(--surface-2); border-radius:18px; }
+  .typing i { width:7px; height:7px; border-radius:50%; background:var(--muted); animation:bounce 1s infinite; }
+  .typing i:nth-child(2){ animation-delay:.15s } .typing i:nth-child(3){ animation-delay:.3s }
+  .quick { display:flex; gap:8px; overflow-x:auto; padding:0 16px 10px; scrollbar-width:none; }
+  .composer { display:flex; gap:8px; padding:0 16px calc(16px + env(safe-area-inset-bottom)); }
+  .composer input { flex:1; min-width:0; min-height:46px; padding:0 16px; border-radius:99px; border:1px solid var(--line); background:var(--surface); }
+  .call { align-items:center; justify-content:center; text-align:center; gap:10px; background:radial-gradient(circle at 50% 30%,#2a2210,var(--bg) 70%); }
+  .call .avatar { width:110px; height:110px; font-size:36px; position:relative; z-index:1; }
+  .waves { position:relative; display:grid; place-items:center; width:110px; height:110px; margin-bottom:12px; }
+  .waves i { position:absolute; inset:0; border-radius:50%; border:2px solid var(--amber); animation:wave 2s infinite; }
+  .waves i:nth-child(2){ animation-delay:.6s } .waves i:nth-child(3){ animation-delay:1.2s }
+  .call.live .waves i { animation-play-state:paused; opacity:0; }
+  .call-btns { display:flex; gap:18px; margin-top:26px; }
+  .round { width:64px; height:64px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); font-size:24px; }
+  .round[aria-pressed="true"] { background:#fff; color:#111; }
+  .round.end { background:var(--red); border:0; }
+
+  .toast { position:absolute; left:16px; right:16px; bottom:18px; z-index:40; padding:12px 16px; border-radius:16px; background:var(--text); color:#111; font-weight:600; font-size:14px; text-align:center; animation:up .25s; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  .fall { position:absolute; top:-30px; z-index:50; pointer-events:none; animation:fall linear forwards; }
+
+  /* Map animations */
+  .pulse { fill:var(--amber); opacity:.5; transform-box:fill-box; transform-origin:center; animation:pulse 2s ease-out infinite; }
+  .bob { animation:bob .6s ease-in-out infinite alternate; }
+  .halo { fill:rgba(255,176,32,.22); transform-box:fill-box; transform-origin:center; animation:pulse 1.6s ease-out infinite; }
+  .flow { animation:flow 1s linear infinite; }
+  .car { animation:drive 16s linear infinite; }
+  .car.b { animation-duration:23s; animation-delay:-9s; }
+  .cloud { animation:drift 44s linear infinite; opacity:.8; }
+
+  @keyframes blink { 50% { opacity:.25 } }
+  @keyframes wiggle { 0%,100% { transform:rotate(0) } 10% { transform:rotate(-14deg) } 20% { transform:rotate(12deg) } 30% { transform:rotate(0) } }
+  @keyframes shake { 20%,60% { transform:translateX(-6px) } 40%,80% { transform:translateX(6px) } }
+  @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(255,176,32,.55) } 100% { box-shadow:0 0 0 16px rgba(255,176,32,0) } }
+  @keyframes hop { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-4px) } }
+  @keyframes pop { from { transform:scale(.85); opacity:0 } to { transform:none; opacity:1 } }
+  @keyframes up { from { transform:translateY(20px); opacity:0 } to { transform:none; opacity:1 } }
+  @keyframes bounce { 0%,60%,100% { transform:translateY(0) } 30% { transform:translateY(-5px) } }
+  @keyframes wave { from { transform:scale(1); opacity:.7 } to { transform:scale(2.1); opacity:0 } }
+  @keyframes pulse { from { transform:scale(.6); opacity:.6 } to { transform:scale(2.4); opacity:0 } }
+  @keyframes bob { from { transform:translateY(-1.5px) } to { transform:translateY(1.5px) } }
+  @keyframes flow { to { stroke-dashoffset:-20 } }
+  @keyframes drive { from { transform:translateX(-30px) } to { transform:translateX(390px) } }
+  @keyframes drift { from { transform:translateX(-40px) } to { transform:translateX(400px) } }
+  @keyframes fall { to { transform:translateY(900px) rotate(360deg); opacity:.2 } }
+  @media (prefers-reduced-motion:reduce){ *,*::before,*::after { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="top">
+    <div class="brand">
+      <h1><span class="e" aria-hidden="true">📦</span> DropTrack</h1>
+      <span class="pill"><i class="live"></i> Live tracking</span>
+    </div>
+    <form class="track" id="trackForm" novalidate>
+      <input id="code" aria-label="Tracking code" placeholder="Tracking code, e.g. DLV-1042" autocomplete="off" maxlength="12" value="DLV-1042">
+      <button class="btn primary" type="submit">Track</button>
+    </form>
+    <p class="err" id="err" role="alert"></p>
+    <div class="chips" id="orderChips" role="group" aria-label="Demo orders"></div>
+  </div>
+
+  <main id="main">
+    <!-- Map -->
+    <section class="map" aria-label="Delivery map">
+      <div class="eta" aria-live="off">
+        <div class="row"><b id="etaBig">18 min</b><small id="etaAt">Arrives 19:04</small></div>
+        <small id="etaSub">4.6 km away</small>
+        <div class="meter" aria-hidden="true"><i id="meterFill" style="width:0"></i><span class="rider e" id="meterRider" style="left:0">🛵</span></div>
+      </div>
+      <svg id="map" viewBox="0 0 360 300" role="img" aria-label="Map showing the courier's route from the store to your home">
+        <rect width="360" height="300" fill="#111722"/>
+        <g id="roads" stroke="#232c3b" stroke-width="12" stroke-linecap="round"></g>
+        <g id="blocks"></g>
+        <text class="e cloud" x="0" y="26" font-size="22" aria-hidden="true">☁️</text>
+        <text class="e cloud" x="0" y="48" font-size="16" style="animation-delay:-20s" aria-hidden="true">☁️</text>
+        <text class="e car" x="0" y="254" font-size="16" aria-hidden="true">🚗</text>
+        <text class="e car b" x="0" y="70" font-size="16" aria-hidden="true">🚌</text>
+        <g id="decor" aria-hidden="true"></g>
+        <path id="routeBase" fill="none" stroke="#2f3a4e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="routeRemain" class="flow" fill="none" stroke="#8795B0" stroke-width="2.5" stroke-dasharray="2 8" stroke-linecap="round"/>
+        <path id="routeDone" fill="none" stroke="#FFB020" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <g id="storePin" class="pin" role="button" tabindex="0" aria-label="Store pin" transform="translate(44 252)">
+          <circle class="ring" r="17" fill="#171c24" stroke="#3b475c" stroke-width="2"/>
+          <text id="storeEm" class="e" y="1" text-anchor="middle" dominant-baseline="central" font-size="19">🏪</text>
+        </g>
+        <g id="homePin" class="pin" role="button" tabindex="0" aria-label="Your home pin" transform="translate(316 66)">
+          <circle class="pulse" r="14"/>
+          <circle class="ring" r="17" fill="#171c24" stroke="#34D399" stroke-width="2"/>
+          <text class="e" y="1" text-anchor="middle" dominant-baseline="central" font-size="19">🏠</text>
+        </g>
+        <g id="courier" class="pin" role="button" tabindex="0" aria-label="Courier pin" transform="translate(44 252)">
+          <circle class="halo" r="14"/>
+          <g class="bob"><text id="courierEm" class="e" text-anchor="middle" dominant-baseline="central" font-size="26">🛵</text></g>
+        </g>
+      </svg>
+
+      <div class="ctrls">
+        <button class="ctrl" id="zin" type="button" aria-label="Zoom in">+</button>
+        <button class="ctrl" id="zout" type="button" aria-label="Zoom out">−</button>
+        <button class="ctrl e" id="follow" type="button" aria-label="Follow courier" aria-pressed="true">🎯</button>
+      </div>
+      <p class="note" id="mapNote" role="status" aria-live="polite">Tap a pin on the map for details.</p>
+    </section>
+
+    <!-- Simulation -->
+    <section class="sim" aria-label="Simulation controls">
+      <button class="btn primary e" id="play" type="button">⏸ Pause</button>
+      <button class="btn" id="speed" type="button" aria-label="Change simulation speed">1×</button>
+      <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Drag to move through the delivery">
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Delivery details">
+      <button class="tab" role="tab" id="t-status" aria-controls="p-status" aria-selected="true" data-tab="status">Status</button>
+      <button class="tab" role="tab" id="t-courier" aria-controls="p-courier" aria-selected="false" data-tab="courier">Courier</button>
+      <button class="tab" role="tab" id="t-order" aria-controls="p-order" aria-selected="false" data-tab="order">Order</button>
+    </div>
+
+    <!-- Status -->
+    <section class="panel" id="p-status" role="tabpanel" aria-labelledby="t-status">
+      <div class="card delivered" id="deliveredCard" hidden>
+        <span class="big e" aria-hidden="true">🎉</span>
+        <p class="headline">Delivered! Enjoy your order</p>
+        <p class="muted">How was your delivery?</p>
+        <div class="rate" id="rate" role="group" aria-label="Rate your delivery"></div>
+        <p class="muted" id="rateMsg" role="status" style="margin-top:8px"></p>
+      </div>
+      <div class="card">
+        <p class="headline" id="headline">Order received</p>
+        <p class="muted" id="subline">We've sent your order to the store.</p>
+      </div>
+      <div class="card">
+        <h2>Order status</h2>
+        <ol class="steps" id="steps"></ol>
+        <p class="muted" style="margin-top:4px">Tip: tap a step to jump to it.</p>
+      </div>
+    </section>
+
+    <!-- Courier -->
+    <section class="panel" id="p-courier" role="tabpanel" aria-labelledby="t-courier" hidden>
+      <div class="card">
+        <div class="courier">
+          <div class="avatar" id="cAvatar">TM</div>
+          <div><b id="cName">Thabo M.</b><div class="stars" id="cStars" aria-label="Rated 4.9 out of 5">★★★★★ <span class="muted" id="cRate"></span></div><p class="muted" id="cVeh"></p></div>
+        </div>
+        <div class="acts">
+          <button class="btn e" id="callBtn" type="button">📞 Call</button>
+          <button class="btn rel e" id="chatBtn" type="button">💬 Chat<span class="badge" id="badge" hidden>1</span></button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Delivery preferences</h2>
+        <button class="switch" type="button" role="switch" id="swDoor" aria-checked="false"><span><span class="e">🚪</span> Leave at the door</span><span class="tg"></span></button>
+        <button class="switch" type="button" role="switch" id="swNotif" aria-checked="true"><span><span class="e">🔔</span> Notify me on status changes</span><span class="tg"></span></button>
+        <label for="noteBox" class="muted" style="display:block;margin-top:8px">Note for the courier</label>
+        <textarea id="noteBox" maxlength="140" placeholder="e.g. Blue gate, ring the bell twice"></textarea>
+        <button class="btn block" id="noteSave" type="button">Save note</button>
+      </div>
+      <div class="card">
+        <h2>Tip your courier</h2>
+        <div class="tips" id="tips"></div>
+      </div>
+    </section>
+
+    <!-- Order -->
+    <section class="panel" id="p-order" role="tabpanel" aria-labelledby="t-order" hidden>
+      <div class="card">
+        <h2 id="orderTitle">Your order</h2>
+        <div id="items"></div>
+        <div id="totals" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <h2>Delivering to</h2>
+        <p class="headline" style="font-size:17px"><span class="e">🏠</span> Home</p>
+        <p class="muted">12 Sunset Avenue, Your Suburb</p>
+      </div>
+      <button class="btn block e" id="share" type="button">🔗 Share tracking link</button>
+    </section>
+  </main>
+
+  <!-- Chat -->
+  <div class="overlay" id="chat" role="dialog" aria-modal="true" aria-labelledby="chatTitle" hidden>
+    <div class="ov-head"><button class="icon-btn" id="chatClose" type="button" aria-label="Close chat">←</button><h2 id="chatTitle">Chat with courier</h2></div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="quick" id="quick"></div>
+    <form class="composer" id="chatForm"><input id="chatInput" aria-label="Message" placeholder="Message your courier…" autocomplete="off" maxlength="120"><button class="btn primary e" type="submit" aria-label="Send">➤</button></form>
+  </div>
+
+  <!-- Call -->
+  <div class="overlay call" id="call" role="dialog" aria-modal="true" aria-labelledby="callName" hidden>
+    <div class="waves"><i></i><i></i><i></i><div class="avatar" id="callAv">TM</div></div>
+    <h2 id="callName" style="margin:0;font-size:24px">Thabo M.</h2>
+    <p class="muted" id="callState" role="status">Calling…</p>
+    <div class="call-btns">
+      <button class="round e" id="mute" type="button" aria-pressed="false" aria-label="Mute">🎙️</button>
+      <button class="round end e" id="hang" type="button" aria-label="End call">📵</button>
+      <button class="round e" id="spk" type="button" aria-pressed="false" aria-label="Speaker">🔊</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var NS = 'http://www.w3.org/2000/svg';
+  var DURATION = 75;           // seconds for a full simulated delivery at 1x
+  var STAGE_AT = [0, 0.05, 0.15, 1];
+  var STAGES = [
+    { icon: '🧾', title: 'Ordered',          sub: 'Your order was received' },
+    { icon: '📦', title: 'Packed',           sub: 'The store is packing your items' },
+    { icon: '🛵', title: 'Out for delivery', sub: 'Your courier is on the way' },
+    { icon: '🏠', title: 'Delivered',        sub: 'Handed over at your door' }
+  ];
+
+  var ORDERS = {
+    'DLV-1042': { title: 'Groceries', icon: '🛒', vehicle: '🛵', vName: 'Scooter', store: 'Fresh Basket Market', sIcon: '🏪', min: 18, km: 4.6,
+      courier: { name: 'Thabo M.', ini: 'TM', rating: 4.9, trips: 1280 },
+      items: [['🥑 Avocados', 4, 38, 'Ripe and ready, 4 pieces'], ['🥛 Fresh milk 2L', 1, 36, 'Chilled, keep upright'], ['🍞 Seed loaf', 1, 29, 'Baked this morning'], ['🍅 Cherry tomatoes', 2, 24, '250 g punnets']] },
+    'DLV-2077': { title: 'Dinner', icon: '🍕', vehicle: '🏍️', vName: 'Motorbike', store: 'Napoli Slice', sIcon: '🍕', min: 12, km: 3.1,
+      courier: { name: 'Lerato K.', ini: 'LK', rating: 4.8, trips: 940 },
+      items: [['🍕 Margherita (large)', 1, 119, 'Thin crust, extra basil'], ['🍟 Garlic bread', 1, 49, 'Cheesy'], ['🥤 Sparkling water', 2, 22, '500 ml']] },
+    'DLV-3150': { title: 'Parcel', icon: '📦', vehicle: '🚚', vName: 'Van', store: 'City Parcel Hub', sIcon: '🏢', min: 25, km: 6.8,
+      courier: { name: 'Sipho N.', ini: 'SN', rating: 5.0, trips: 2150 },
+      items: [['🎧 Headphones', 1, 899, 'Signature required'], ['📱 Phone case', 1, 149, 'Fragile']] }
+  };
+  var FEE = 25;
+
+  var S = null; // state
+
+  /* ---------- Map building ---------- */
+  var xs = [0, 44, 126, 206, 260, 316, 360], ys = [0, 66, 116, 186, 250, 300];
+  var roads = $('#roads'), blocks = $('#blocks'), decor = $('#decor');
+  function el(tag, attrs, parent) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); (parent || blocks).appendChild(n); return n; }
+  xs.slice(1, -1).forEach(function (x) { el('line', { x1: x, y1: 0, x2: x, y2: 300 }, roads); });
+  ys.slice(1, -1).forEach(function (y) { el('line', { x1: 0, y1: y, x2: 360, y2: y }, roads); });
+  for (var i = 0; i < xs.length - 1; i++) for (var j = 0; j < ys.length - 1; j++) {
+    var x0 = xs[i] + (i ? 11 : -10), x1 = xs[i + 1] - (i < xs.length - 2 ? 11 : -10);
+    var y0 = ys[j] + (j ? 11 : -10), y1 = ys[j + 1] - (j < ys.length - 2 ? 11 : -10);
+    var park = (i === 2 && j === 3), pond = (i === 4 && j === 3);
+    el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: 8, fill: park ? '#133524' : pond ? '#10304a' : ((i + j) % 2 ? '#171e2b' : '#1a2230') });
+  }
+  [[150, 218], [172, 232], [184, 210], [140, 238], [190, 240]].forEach(function (p) { var t = el('text', { x: p[0], y: p[1], 'font-size': 15, class: 'e', 'text-anchor': 'middle' }, decor); t.textContent = '🌳'; });
+  var duck = el('text', { x: 232, y: 222, 'font-size': 16, class: 'e', 'text-anchor': 'middle' }, decor); duck.textContent = '🦆';
+  [[126, 116], [206, 186], [260, 66]].forEach(function (p) { var t = el('text', { x: p[0], y: p[1] + 4, 'font-size': 11, class: 'e', 'text-anchor': 'middle' }, decor); t.textContent = '🚦'; });
+
+  var ROUTE = 'M44 252 L44 196 Q44 186 54 186 L116 186 Q126 186 126 176 L126 126 Q126 116 136 116 L196 116 Q206 116 206 106 L206 76 Q206 66 216 66 L316 66';
+  var base = $('#routeBase'), remain = $('#routeRemain'), done = $('#routeDone');
+  [base, remain, done].forEach(function (p) { p.setAttribute('d', ROUTE); });
+  var LEN = base.getTotalLength();
+  done.style.strokeDasharray = LEN + ' ' + LEN;
+
+  /* ---------- Map view (zoom / follow / pan) ---------- */
+  var ZOOMS = [1, 1.7, 2.6], zi = 0, follow = true, center = { x: 180, y: 150 }, svg = $('#map');
+  function applyView(cx, cy) {
+    var z = ZOOMS[zi], w = 360 / z, h = 300 / z;
+    var c = (follow && zi > 0) ? { x: cx, y: cy } : center;
+    var x = Math.max(0, Math.min(360 - w, c.x - w / 2)), y = Math.max(0, Math.min(300 - h, c.y - h / 2));
+    if (!(follow && zi > 0)) { center = { x: x + w / 2, y: y + h / 2 }; }
+    svg.setAttribute('viewBox', x.toFixed(1) + ' ' + y.toFixed(1) + ' ' + w.toFixed(1) + ' ' + h.toFixed(1));
+  }
+  $('#zin').addEventListener('click', function () { zi = Math.min(ZOOMS.length - 1, zi + 1); view(); });
+  $('#zout').addEventListener('click', function () { zi = Math.max(0, zi - 1); if (zi === 0) center = { x: 180, y: 150 }; view(); });
+  $('#follow').addEventListener('click', function () { follow = !follow; this.setAttribute('aria-pressed', follow); view(); toast(follow ? '🎯 Following your courier' : '🗺️ Free map view'); });
+  var drag = null;
+  svg.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, moved: false }; });
+  svg.addEventListener('pointermove', function (e) {
+    if (!drag || zi === 0) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+    if (!drag.moved) { drag.moved = true; svg.setPointerCapture(e.pointerId); if (follow) { follow = false; $('#follow').setAttribute('aria-pressed', 'false'); var vb = svg.viewBox.baseVal; center = { x: vb.x + vb.width / 2, y: vb.y + vb.height / 2 }; } }
+    var k = (360 / ZOOMS[zi]) / svg.getBoundingClientRect().width;
+    center = { x: center.x - dx * k, y: center.y - dy * k }; drag.x = e.clientX; drag.y = e.clientY; view();
+  });
+  svg.addEventListener('pointerup', function () { drag = null; });
+  function view() { var p = pos(); applyView(p.x, p.y); }
+
+  /* ---------- Toast / confetti ---------- */
+  var tt; function toast(m) { var t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, 2600); }
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function confetti() {
+    if (reduce) return;
+    var set = ['📦', '🎉', '🛵', '✨', '🏠', '🥳', '💛'];
+    for (var i = 0; i < 38; i++) {
+      var s = document.createElement('span'); s.className = 'fall e';
+      s.textContent = set[i % set.length]; s.style.left = Math.random() * 94 + '%';
+      s.style.fontSize = 16 + Math.random() * 18 + 'px'; s.style.animationDuration = 2.4 + Math.random() * 2.2 + 's'; s.style.animationDelay = Math.random() * 0.9 + 's';
+      $('#app').appendChild(s); setTimeout(function (n) { n.remove(); }.bind(null, s), 5600);
+    }
+  }
+
+  /* ---------- Helpers ---------- */
+  function clock(min) { return new Date(Date.now() + min * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+  function routeFrac() { return Math.max(0, Math.min(1, (S.p - STAGE_AT[2]) / (1 - STAGE_AT[2]))); }
+  function stageOf(p) { return p >= 1 ? 3 : p >= STAGE_AT[2] ? 2 : p >= STAGE_AT[1] ? 1 : 0; }
+  function pos() { var f = routeFrac(), pt = base.getPointAtLength(LEN * f); return { x: pt.x, y: pt.y, f: f }; }
+
+  /* ---------- Orders ---------- */
+  function renderChips() {
+    var box = $('#orderChips'); box.textContent = '';
+    Object.keys(ORDERS).forEach(function (code) {
+      var o = ORDERS[code], b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', String(S && S.code === code));
+      b.innerHTML = '<span class="e">' + o.icon + '</span> ' + code;
+      b.addEventListener('click', function () { $('#code').value = code; load(code, true); });
+      box.appendChild(b);
+    });
+  }
+  function load(code, announce) {
+    var o = ORDERS[code]; if (!o) return;
+    S = { code: code, o: o, p: 0, playing: true, speed: 1, stage: 0, tip: 0, rating: 0, near: false, door: false, msgs: [], last: performance.now() };
+    zi = 0; follow = true; center = { x: 180, y: 150 }; $('#follow').setAttribute('aria-pressed', 'true');
+    $('#storeEm').textContent = o.sIcon; $('#courierEm').textContent = o.vehicle; $('#meterRider').textContent = o.vehicle;
+    $('#cAvatar').textContent = o.courier.ini; $('#callAv').textContent = o.courier.ini; $('#cName').textContent = o.courier.name; $('#callName').textContent = o.courier.name;
+    $('#cRate').textContent = o.courier.rating.toFixed(1) + ' · ' + o.courier.trips.toLocaleString('en-US') + ' trips';
+    $('#cStars').setAttribute('aria-label', 'Rated ' + o.courier.rating + ' out of 5');
+    $('#cVeh').textContent = o.vName + ' · ' + o.store;
+    $('#orderTitle').textContent = o.icon + ' Your ' + o.title.toLowerCase() + ' order';
+    $('#deliveredCard').hidden = true; $('#rateMsg').textContent = ''; $('#noteBox').value = '';
+    $('#swDoor').setAttribute('aria-checked', 'false'); $('#badge').hidden = true;
+    renderRate(); renderTips(); renderItems(); renderSteps(); renderChips(); renderChat();
+    $('#err').textContent = ''; update(true);
+    if (announce) toast(o.icon + ' Now tracking ' + code);
+  }
+  $('#trackForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = $('#code').value.trim().toUpperCase(), inp = $('#code');
+    if (ORDERS[code]) { inp.classList.remove('bad'); load(code, true); }
+    else { inp.classList.remove('bad'); void inp.offsetWidth; inp.classList.add('bad'); $('#err').textContent = '😕 No order found for "' + (code || '…') + '". Try DLV-1042, DLV-2077 or DLV-3150.'; }
+  });
+
+  /* ---------- Status panel ---------- */
+  function renderSteps() {
+    var ol = $('#steps'); ol.textContent = '';
+    STAGES.forEach(function (st, i) {
+      var li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.className = 'step'; b.dataset.i = i;
+      b.innerHTML = '<span class="dot"><span class="em e">' + (i === 2 ? S.o.vehicle : st.icon) + '</span></span><span><b>' + st.title + '</b><span class="sub">' + st.sub + '</span></span><time></time>';
+      b.addEventListener('click', function () { S.p = i === 3 ? 1 : STAGE_AT[i]; S.stage = stageOf(S.p); S.near = routeFrac() > 0.85; update(true); toast(st.icon + ' Jumped to "' + st.title + '"'); });
+      li.appendChild(b); ol.appendChild(li);
+    });
+  }
+  function renderRate() {
+    var box = $('#rate'); box.textContent = '';
+    for (var i = 1; i <= 5; i++) (function (n) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'star'; b.textContent = '★'; b.setAttribute('aria-label', n + ' star' + (n > 1 ? 's' : ''));
+      b.addEventListener('click', function () {
+        S.rating = n; $$('.star').forEach(function (s, k) { s.classList.toggle('on', k < n); });
+        $('#rateMsg').textContent = n >= 4 ? 'Thanks for rating ' + n + ' ⭐ We\'ll tell ' + S.o.courier.name + '! 💛' : 'Thanks for the feedback. We\'ll do better. 🙏';
+        toast('⭐ Rated ' + n + '/5');
+      });
+      box.appendChild(b);
+    })(i);
+  }
+
+  /* ---------- Courier panel ---------- */
+  function renderTips() {
+    var box = $('#tips'); box.textContent = '';
+    [[0, '🙂', 'No tip'], [10, '😊', 'R10'], [20, '😄', 'R20'], [30, '🤩', 'R30']].forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'tip'; b.setAttribute('aria-pressed', String(S.tip === t[0]));
+      b.innerHTML = '<span class="e">' + t[1] + '</span>' + t[2];
+      b.addEventListener('click', function () { S.tip = t[0]; renderTips(); renderItems(); toast(t[0] ? '🙏 R' + t[0] + ' tip added for ' + S.o.courier.name : 'Tip removed'); });
+      box.appendChild(b);
+    });
+  }
+  function sw(id, cb) { var b = $(id); b.addEventListener('click', function () { var on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); cb(on); }); }
+  sw('#swDoor', function (on) { S.door = on; toast(on ? '🚪 We\'ll leave it at your door' : '🙋 You\'ll collect in person'); });
+  sw('#swNotif', function (on) { toast(on ? '🔔 Notifications on' : '🔕 Notifications off'); });
+  $('#noteSave').addEventListener('click', function () { var v = $('#noteBox').value.trim(); toast(v ? '📝 Note sent to ' + S.o.courier.name : 'Type a note first'); if (v) addMsg('me', '📝 ' + v); });
+
+  /* ---------- Order panel ---------- */
+  function renderItems() {
+    var box = $('#items'), tot = $('#totals'), sub = 0; box.textContent = ''; tot.textContent = '';
+    S.o.items.forEach(function (it) {
+      var line = it[1] * it[2]; sub += line;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'item'; b.setAttribute('aria-expanded', 'false');
+      b.innerHTML = '<div class="r"><span><span class="chev">▸</span><span class="nm"></span> × ' + it[1] + '</span><span>R ' + line.toFixed(2) + '</span></div><div class="d"></div>';
+      $('.nm', b).textContent = it[0]; $('.d', b).textContent = it[3];
+      b.addEventListener('click', function () { b.setAttribute('aria-expanded', String(b.getAttribute('aria-expanded') !== 'true')); });
+      box.appendChild(b);
+    });
+    [['Subtotal', sub], ['🛵 Delivery fee', FEE], ['🙏 Courier tip', S.tip]].forEach(function (r) { var d = document.createElement('div'); d.className = 'tot'; d.innerHTML = '<span>' + r[0] + '</span><span>R ' + r[1].toFixed(2) + '</span>'; tot.appendChild(d); });
+    var t = document.createElement('div'); t.className = 'tot big'; t.innerHTML = '<span>Total</span><span>R ' + (sub + FEE + S.tip).toFixed(2) + '</span>'; tot.appendChild(t);
+  }
+  $('#share').addEventListener('click', function () {
+    var link = location.href.split('#')[0] + '#' + S.code;
+    if (navigator.share) { navigator.share({ title: 'Track my delivery', url: link }).catch(function () {}); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { toast('🔗 Tracking link copied'); }, function () { toast('Link: ' + link); });
+    else toast('Link: ' + link);
+  });
+
+  /* ---------- Tabs ---------- */
+  $$('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      $$('.tab').forEach(function (x) { var on = x === t; x.setAttribute('aria-selected', on); $('#p-' + x.dataset.tab).hidden = !on; });
+    });
+    t.addEventListener('keydown', function (e) {
+      var tabs = $$('.tab'), i = tabs.indexOf(t);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { var n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); n.click(); }
+    });
+  });
+
+  /* ---------- Map pins ---------- */
+  function pinNote(msg) { $('#mapNote').textContent = msg; }
+  function pin(id, fn) { var n = $(id); n.addEventListener('click', fn); n.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } }); }
+  pin('#storePin', function () { pinNote(S.o.sIcon + ' ' + S.o.store + (S.stage >= 2 ? ' · order picked up' : ' · preparing your order')); });
+  pin('#homePin', function () { pinNote('🏠 Home · 12 Sunset Avenue · ' + (S.p >= 1 ? 'delivered ✅' : 'arriving around ' + clock(Math.ceil(S.o.min * (1 - S.p))))); });
+  pin('#courier', function () { pinNote(S.o.vehicle + ' ' + S.o.courier.name + ' · ' + (S.stage < 2 ? 'waiting at the store' : S.p >= 1 ? 'arrived' : ((1 - routeFrac()) * S.o.km).toFixed(1) + ' km from you')); });
+
+  /* ---------- Simulation controls ---------- */
+  $('#play').addEventListener('click', function () {
+    if (S.p >= 1) { S.p = 0; S.stage = 0; S.near = false; S.playing = true; $('#deliveredCard').hidden = true; }
+    else S.playing = !S.playing;
+    update(true);
+  });
+  $('#speed').addEventListener('click', function () { S.speed = S.speed === 1 ? 2 : S.speed === 2 ? 4 : 1; update(true); toast('⚡ Speed ' + S.speed + '×'); });
+  $('#scrub').addEventListener('input', function () { S.p = this.value / 1000; S.playing = false; S.stage = stageOf(S.p); S.near = routeFrac() > 0.85; update(true); });
+
+  /* ---------- Chat ---------- */
+  var chatFrom = null;
+  function addMsg(who, text) { S.msgs.push({ who: who, text: text }); renderChat(); if (who === 'them' && $('#chat').hidden) { var b = $('#badge'); b.hidden = false; b.textContent = String((+b.textContent || 0) + 1); } }
+  function renderChat() {
+    var box = $('#msgs'); box.textContent = '';
+    if (!S.msgs.length) { var m = document.createElement('p'); m.className = 'muted'; m.style.textAlign = 'center'; m.textContent = '👋 Say hi to ' + S.o.courier.name + '. Replies come once they are on the road.'; box.appendChild(m); }
+    S.msgs.forEach(function (m) { var d = document.createElement('div'); d.className = 'msg ' + m.who; d.textContent = m.text; box.appendChild(d); });
+    if (S.typing) { var t = document.createElement('div'); t.className = 'typing'; t.setAttribute('aria-label', 'Courier is typing'); t.innerHTML = '<i></i><i></i><i></i>'; box.appendChild(t); }
+    box.scrollTop = box.scrollHeight;
+  }
+  function openChat() { chatFrom = document.activeElement; $('#chat').hidden = false; $('#badge').hidden = true; $('#badge').textContent = '0'; renderChat(); $('#chatInput').focus(); }
+  function closeOv(id) { $(id).hidden = true; if (chatFrom && document.body.contains(chatFrom)) chatFrom.focus(); }
+  $('#chatBtn').addEventListener('click', openChat);
+  $('#chatClose').addEventListener('click', function () { closeOv('#chat'); });
+  ['Where are you? 🗺️', "I'm at the gate 🚪", 'Please leave it at the door', 'Thanks! 🙌', 'Hurry please 💨'].forEach(function (q) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = q; b.addEventListener('click', function () { send(q); }); $('#quick').appendChild(b);
+  });
+  function reply(text) {
+    var t = text.toLowerCase();
+    if (S.p >= 1) return 'Already delivered. Enjoy! 🎉';
+    if (/where|far|eta|long/.test(t)) return S.stage < 2 ? 'Still at the store collecting your order 🏪' : 'About ' + Math.max(1, Math.ceil(S.o.min * (1 - S.p))) + ' min away, ' + ((1 - routeFrac()) * S.o.km).toFixed(1) + ' km to go 🛵';
+    if (/gate|door|leave/.test(t)) return 'Perfect, I\'ll leave it at the door 🚪📦';
+    if (/thank|thx|cheers/.test(t)) return 'Anytime! 🙌';
+    if (/hurry|fast|quick|late/.test(t)) { if (S.speed < 2) { S.speed = 2; update(true); } return 'On it! Riding faster 💨'; }
+    return 'Got it 👍';
+  }
+  function send(text) {
+    text = text.trim(); if (!text) return;
+    addMsg('me', text);
+    S.typing = true; renderChat();
+    var code = S.code;
+    setTimeout(function () { if (!S || S.code !== code) return; S.typing = false; addMsg('them', reply(text)); }, 1100);
+  }
+  $('#chatForm').addEventListener('submit', function (e) { e.preventDefault(); var i = $('#chatInput'); send(i.value); i.value = ''; });
+
+  /* ---------- Call ---------- */
+  var callT, callS = 0;
+  $('#callBtn').addEventListener('click', function () {
+    chatFrom = this; $('#call').hidden = false; $('#call').classList.remove('live'); $('#callState').textContent = 'Calling…'; callS = 0;
+    $('#hang').focus(); clearInterval(callT);
+    setTimeout(function () {
+      if ($('#call').hidden) return;
+      $('#call').classList.add('live'); $('#callState').textContent = 'Connected · 0:00';
+      callT = setInterval(function () { callS++; $('#callState').textContent = 'Connected · ' + Math.floor(callS / 60) + ':' + String(callS % 60).padStart(2, '0'); }, 1000);
+    }, 2200);
+  });
+  function endCall() { clearInterval(callT); closeOv('#call'); if (callS) toast('📵 Call ended · ' + callS + 's'); }
+  $('#hang').addEventListener('click', endCall);
+  ['#mute', '#spk'].forEach(function (id) { $(id).addEventListener('click', function () { this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true'); }); });
+  document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; if (!$('#call').hidden) endCall(); else if (!$('#chat').hidden) closeOv('#chat'); });
+
+  /* ---------- Main update ---------- */
+  function update(silent) {
+    var o = S.o, f = routeFrac(), st = stageOf(S.p), p = pos(), left = o.min * (1 - S.p), minsLeft = Math.ceil(left);
+    // courier + route
+    var cg = $('#courier'), prev = base.getPointAtLength(Math.max(0, LEN * f - 2)), flip = p.x - prev.x > 0.01;
+    cg.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ')');
+    $('#courierEm').setAttribute('transform', flip ? 'scale(-1 1)' : '');
+    done.style.strokeDashoffset = LEN * (1 - f);
+    view();
+    // eta card
+    $('#etaBig').textContent = S.p >= 1 ? 'Delivered ✅' : st < 2 ? o.min + ' min' : minsLeft <= 1 ? 'Arriving now' : minsLeft + ' min';
+    $('#etaAt').textContent = S.p >= 1 ? '' : 'Arrives ' + clock(left);
+    $('#etaSub').textContent = S.p >= 1 ? 'Handed over at your door' : st < 2 ? 'Preparing at ' + o.store : ((1 - f) * o.km).toFixed(1) + ' km away';
+    $('#meterFill').style.width = (S.p * 100) + '%'; $('#meterRider').style.left = Math.max(3, Math.min(97, S.p * 100)) + '%';
+    // headline
+    var heads = [['🧾 Order received', 'We\'ve sent your order to ' + o.store + '.'], ['📦 Packing your order', o.store + ' is getting your items ready.'], [S.near ? '🛵 Almost there!' : '🛵 On the way', S.near ? o.courier.name + ' is just around the corner. Get ready!' : o.courier.name + ' picked up your order and is heading to you.'], ['🎉 Delivered', 'Your order arrived. Enjoy!']];
+    $('#headline').textContent = heads[st][0]; $('#subline').textContent = heads[st][1];
+    // steps
+    $$('.step').forEach(function (b, i) {
+      b.classList.toggle('done', i < st || (i === 3 && S.p >= 1)); b.classList.toggle('now', i === st && S.p < 1);
+      b.setAttribute('aria-current', i === st ? 'step' : 'false');
+      var tm = $('time', b); tm.textContent = i < st ? '✓' : i === st && st < 3 ? 'Now' : i === 3 ? (S.p >= 1 ? '✓' : '~' + clock(left)) : '';
+    });
+    // sim buttons
+    $('#play').textContent = S.p >= 1 ? '↻ Replay' : S.playing ? '⏸ Pause' : '▶ Play';
+    $('#speed').textContent = S.speed + '×'; $('#scrub').value = Math.round(S.p * 1000);
+    $('#deliveredCard').hidden = S.p < 1;
+    // events on natural progress
+    if (st !== S.stage) {
+      var up = st > S.stage; S.stage = st;
+      if (!silent && up) {
+        toast(STAGES[st].icon + ' ' + STAGES[st].title + '!');
+        if (st === 2) addMsg('them', 'Hi! I\'ve picked up your order and I\'m on my way ' + o.vehicle + '💨');
+        if (st === 3) { addMsg('them', 'Delivered! Enjoy 🎉'); confetti(); $('#deliveredCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      }
+    }
+    if (!S.near && f > 0.85 && S.p < 1) { S.near = true; if (!silent) { toast('🛵 ' + o.courier.name + ' is almost there! 🚪'); addMsg('them', 'Almost at your place! 📍'); } }
+  }
+
+  /* ---------- Loop ---------- */
+  function tick(now) {
+    var dt = Math.min(0.1, (now - S.last) / 1000); S.last = now;
+    if (S.playing && S.p < 1) { S.p = Math.min(1, S.p + dt * S.speed / DURATION); if (S.p >= 1) S.playing = false; update(false); }
+    requestAnimationFrame(tick);
+  }
+
+  var start = (location.hash || '').replace('#', '').toUpperCase();
+  load(ORDERS[start] ? start : 'DLV-1042', false);
+  if (ORDERS[start]) $('#code').value = start;
+  requestAnimationFrame(function (t) { S.last = t; tick(t); });
+})();
+</script>
+</body>
+</html>
